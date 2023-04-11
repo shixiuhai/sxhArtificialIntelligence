@@ -27,7 +27,7 @@ class Detector:
     """
     基于onnx的目标检测类
     """
-    def __init__(self, img_size, conf_thres, iou_thres, weight,gpu_id:int=1):
+    def __init__(self, img_size:int, conf_thres:float, iou_thres:float, weight:str,nameList:list,gpu_id:int=1):
         super(Detector, self).__init__()
         self.img_size = img_size
         self.threshold = conf_thres
@@ -35,6 +35,7 @@ class Detector:
         self.stride = 1
         self.weights = weight
         self.gpu_id=gpu_id
+        self.nameList=nameList
         self.init_model()
 
     def init_model(self):
@@ -137,5 +138,8 @@ class Detector:
                 box = np.squeeze((scale_coords(shape, np.expand_dims(box, axis=0).astype('float'), img.shape[:2]).round()),
                   axis=0).astype('int')
                 x0, y0, x1, y1 = (box[0], box[1], box[2], box[3])
-                out_list.append({'xmin':x0,  'ymin':y0,  'xmax':x1,  'ymax':y1,  'confidence':pred_confes[i],  'name':pred_classes[i]})
+                out_list.append({'xmin':x0,  'ymin':y0,  'xmax':x1,  'ymax':y1,  'confidence':pred_confes[i],  'name':self.nameList[pred_classes[i]]})
         return out_list
+
+
+

@@ -37,7 +37,7 @@ def cv2img_to_base64(cv2imgNp):
     # _, im_arr = cv2.imencode('.jpg', img)  # im_arr: image in Numpy one-dim array format.
     # im_bytes = im_arr.tobytes()
     # return base64.b64encode(im_bytes)
-    image = cv2.imencode('.jpg',cv2imgNp)[1]
+    image = cv2.imencode('.jpeg',cv2imgNp)[1]
     return str(base64.b64encode(image))[2:-1]
 
 def screenshot(videoPath:str)->np.ndarray:
@@ -54,16 +54,11 @@ def screenshot(videoPath:str)->np.ndarray:
     else:
         return np.array([])
     p=subprocess.Popen(saveCmd.split(),stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    try:
-        p.wait(6)
-    except subprocess.TimeoutExpired:
-        p.kill()
-    finally:
-        output, error = p.communicate()
-        if str(error)=="b''":
-            return cv2.imdecode(np.frombuffer(output, dtype=np.uint8), cv2.IMREAD_COLOR)
-        else:
-            return np.array([])
+    output, error = p.communicate(timeout=6)
+    if str(error)=="b''":
+        return cv2.imdecode(np.frombuffer(output, dtype=np.uint8), cv2.IMREAD_COLOR)
+    else:
+        return np.array([])
 
 
     
@@ -74,7 +69,7 @@ class ArtTraining:
     """
     def __init__(self,queueSize=10) -> None:
         # 加载人头模型
-        self.headModel=Detector(640,0.6,0.6,"model/head.onnx")
+        self.headModel=Detector(640,0.6,0.6,"model/head.onnx",nameList=["head"])
         # 创建人头模型生产者
         self.headProducer=RabbitMqProducer(user=mqUser, pwd=mqPassword, host=mqHost, port=mqConnectPort,virtual_host=mqVirtualHost,exchange=mqExchange)
         # 创建人头模型队列
@@ -82,7 +77,7 @@ class ArtTraining:
         print("-----------人头检测模型加载成功-----------")
         
         # 加载吸烟模型
-        self.smokeModel=Detector(640,0.6,0.6,"model/zju-smokingFace.onnx")
+        self.smokeModel=Detector(640,0.6,0.6,"model/zju-smokingFace.onnx",nameList=["smoke"])
         # 创建吸烟模型生成者
         self.smokeProducer=RabbitMqProducer(user=mqUser, pwd=mqPassword, host=mqHost, port=mqConnectPort,virtual_host=mqVirtualHost,exchange=mqExchange)
         # 创建吸烟模型生产者
@@ -100,13 +95,13 @@ class ArtTraining:
             if imgArray.size!=0:
                 # 这里要重写
                 res=self.headModel.detect_out(imgArray)
-                # print("人头数量%s"%len(res))
+                print("人头数量%s"%len(res))
                 # 这里要重写
                 self.headProducer.send(queueName=monitoringWarningQueueName,routingKey=monitoringWarningKey,body={
                     'id':id,
                     'img':cv2img_to_base64(imgArray),
                     'checkType':checkType,
-                    'objNumber':len(res),
+                    # 'objNumber':len(res),
                     'data':str(res)
                 })
                 # for i in range(len(res)):
@@ -138,7 +133,7 @@ class ArtTraining:
                     'id':id,
                     'img':'',
                     'checkType':checkType,
-                    'objNumber':len(res),
+                    # 'objNumber':len(res),
                     'data':str(res)
                 })
             
@@ -160,7 +155,7 @@ class ArtTraining:
                     'id':id,
                     'img':cv2img_to_base64(imgArray),
                     'checkType':checkType,
-                    'objNumber':len(res),
+                    # 'objNumber':len(res),
                     'data':str(res)
                 })
             else:
@@ -169,7 +164,7 @@ class ArtTraining:
                     'id':id,
                     'img':'',
                     'checkType':checkType,
-                    'objNumber':len(res),
+                    # 'objNumber':len(res),
                     'data':str(res)
                 })
            
@@ -185,6 +180,7 @@ def screenshot_threads(id:str,path:str,checkType:str):
     """
     imgArray=screenshot(path)
     if "head" in checkType:
+        cv2.imwrite("source.png",imgArray)
         artTraining.headQueue.put({
             "id":id,
             "checkType":checkType,
