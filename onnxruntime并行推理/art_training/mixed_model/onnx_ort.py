@@ -103,11 +103,12 @@ class Detector:
         # 每个框的维度大小为 cx,cy,w,h,box_conf + number of class_conf_list 
         # [[1,0.3],[2,0.4],[2,0.2]]
         for detection in pred:
-            scores = detection[5:]
             # 输出前判断一下目标框概率
-            if detection[4]>=0.2:
+            boxConfidence=float(detection[4])
+            if boxConfidence>0.25:
+                scores = detection[5:]
                 classID = np.argmax(scores)
-                confidence = scores[classID] * detection[4]  # 置信度为类别的概率和目标框概率值得乘积
+                confidence = float(scores[classID]) * boxConfidence  # 置信度为类别的概率和目标框概率值得乘积
                 if confidence > self.threshold:
                     box = detection[0:4]
                     (centerX, centerY, width, height) = box.astype("int")
