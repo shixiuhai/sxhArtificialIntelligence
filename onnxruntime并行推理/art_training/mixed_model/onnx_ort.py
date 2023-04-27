@@ -88,42 +88,46 @@ class Detector:
         :param img:
         :return:
         """
-        # s=time.time()
+        # 处理原始输入的bgr图像数组
         img0, img = self.preprocess(im)
         pred = self.m.run(None, {self.input_name: img})[0]  # 执行推理
-        # e=time.time()
-        # print(e-s)
+        # torch.Tensor 类型 转换为numpy类型
         pred = pred.astype(np.float32)
+        # 将预测结果转换为二维数组
         pred = np.squeeze(pred, axis=0)
+        
+        # print(len(pred))
         boxes = []
         classIds = []
         confidences = []
+        # 每个框的维度大小为 cx,cy,w,h,box_conf + number of class_conf_list 
+        # [[1,0.3],[2,0.4],[2,0.2]]
         for detection in pred:
             scores = detection[5:]
-            classID = np.argmax(scores)
-            
-            confidence = scores[classID] * detection[4]  # 置信度为类别的概率和目标框概率值得乘积
-            if confidence > self.threshold:
-                box = detection[0:4]
-                (centerX, centerY, width, height) = box.astype("int")
-                x = int(centerX - (width / 2))
-                y = int(centerY - (height / 2))
-                boxes.append([x, y, int(width), int(height)])
-                classIds.append(classID)
-                confidences.append(float(confidence))
+            # 输出前判断一下目标框概率
+            if detection[4]>=0.2:
+                classID = np.argmax(scores)
+                confidence = scores[classID] * detection[4]  # 置信度为类别的概率和目标框概率值得乘积
+                if confidence > self.threshold:
+                    box = detection[0:4]
+                    (centerX, centerY, width, height) = box.astype("int")
+                    x = int(centerX - (width / 2))
+                    y = int(centerY - (height / 2))
+                    boxes.append([x, y, int(width), int(height)])
+                    classIds.append(classID)
+                    confidences.append(float(confidence))
+                
         idxs = cv2.dnn.NMSBoxes(boxes, confidences, self.threshold, self.iou_thres)  # 执行nms算法
         pred_boxes = []
         pred_confes = []
         pred_classes = []
-        
         if len(idxs) > 0:
             for i in idxs.flatten():
                 confidence = confidences[i]
                 if confidence >= self.threshold:
                     pred_boxes.append(boxes[i])
                     pred_confes.append(confidence)
-                    pred_classes.append(classIds[i])
-        
+                    pred_classes.append(classIds[i])  
         return im, pred_boxes, pred_confes, pred_classes
     
     def detect_out(self, image: np.ndarray) -> list:
@@ -140,6 +144,3 @@ class Detector:
                 x0, y0, x1, y1 = (box[0], box[1], box[2], box[3])
                 out_list.append({'xmin':x0,  'ymin':y0,  'xmax':x1,  'ymax':y1,  'confidence':pred_confes[i],  'name':self.nameList[pred_classes[i]]})
         return out_list
-
-
-
